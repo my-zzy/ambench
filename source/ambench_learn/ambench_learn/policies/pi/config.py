@@ -25,25 +25,39 @@ def make_config(
     repo_id: str | None = None,
     corrected: bool = False,
     pretrained_checkpoint: Path | None = None,
+    finetune_mode: str = "lora",
+    fsdp_devices: int = 1,
+    num_workers: int = 2,
 ) -> config.TrainConfig:
-    """Build the original wrist-only 30 Hz pilot, with explicit artifact locations."""
+    """Build wrist-only LoRA or full tuning, preserving the original pilot defaults."""
+    if finetune_mode not in {"lora", "full"}:
+        raise ValueError("finetune_mode must be 'lora' or 'full'")
+    if min(batch_size, steps, fsdp_devices) < 1 or num_workers < 0:
+        raise ValueError("Batch size, steps, and FSDP devices must be positive; workers must be nonnegative")
     root = work_dir.expanduser().resolve()
     repo_id = repo_id or ("my-zzy/pressbutton_30hz_terminal_v2" if corrected else DATASET)
     checkpoint = pretrained_checkpoint or root / "pretrained/pi0_base"
     model = Pi0Config(
-        paligemma_variant="gemma_2b_lora",
-        action_expert_variant="gemma_300m_lora",
+        paligemma_variant="gemma_2b_lora" if finetune_mode == "lora" else "gemma_2b",
+        action_expert_variant="gemma_300m_lora" if finetune_mode == "lora" else "gemma_300m",
         action_horizon=30,
     )
+    asset_name = NAME + ("_corrected" if corrected else "")
     base = config.get_config("pi0_am_bench_multitask_openpi_original_20hz_h50_ee_local_relative")
     return dataclasses.replace(
         base,
-        name=NAME + ("_corrected" if corrected else ""),
+        name=asset_name if finetune_mode == "lora" else asset_name.replace("_lora_", "_full_"),
         project_name="ambench_pi0_local",
         exp_name=exp_name,
         model=model,
         data=config.LeRobotAmBenchDataConfig(
             repo_id=repo_id,
+            # Full tuning reuses the validated statistics without regenerating them.
+            assets=(
+                config.AssetsConfig(assets_dir=str(root / "assets" / asset_name))
+                if finetune_mode == "full"
+                else config.AssetsConfig()
+            ),
             base_config=config.DataConfig(prompt_from_task=True),
             include_base_image=False,
             action_representation="ee_local_relative",
@@ -54,10 +68,14 @@ def make_config(
         assets_base_dir=str(root / "assets"),
         checkpoint_base_dir=str(root / "checkpoints"),
         batch_size=batch_size,
-        num_workers=2,
+        num_workers=num_workers,
+        fsdp_devices=fsdp_devices,
         num_train_steps=steps,
         lr_schedule=optimizer.CosineDecaySchedule(
-            warmup_steps=100, peak_lr=2.5e-5, decay_steps=10_000, decay_lr=2.5e-6
+            warmup_steps=100,
+            peak_lr=2.5e-5,
+            decay_steps=max(steps, 101) if finetune_mode == "full" else 10_000,
+            decay_lr=2.5e-6,
         ),
         log_interval=1 if steps <= 10 else 20,
         save_interval=1000,

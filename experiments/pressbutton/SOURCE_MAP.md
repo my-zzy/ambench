@@ -49,3 +49,19 @@ remain unchanged and ignored; they are provenance, never runtime imports.
 
 No older commits were amended or backdated. These milestone commits reconstruct
 the work on the current date while documenting when the experiments occurred.
+
+## Subsequent server setup
+
+The new server work is recorded separately from the historical reconstruction:
+
+- `scripts/setup/install_openpi_conda.sh` installs the pinned OpenPI runtime into
+  a dedicated home Conda environment, preserving artifact hashes through direct
+  mirror downloads and registering the learning source without simulator extras.
+- `experiments/pressbutton/openpi_conda.sh` and the `pi.config`/`pi.runtime`
+  extensions expose full tuning, FSDP, GPU checks, and isolated synthetic smoke
+  validation. Regression checks live in `tests/policies/pi/test_server_setup.py`
+  under `source/ambench_learn`.
+
+Server package inventories, synthetic checkpoints, validation logs, and transfer
+manifests remain ignored artifacts. The README distinguishes synthetic hardware
+validation from pending real-data training and simulator evaluation.

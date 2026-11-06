@@ -32,7 +32,13 @@ def main(command: str | None = None, arguments: list[str] | None = None) -> None
     parser.add_argument("--repo-id", default=None)
     parser.add_argument("--variant", choices=["pilot", "corrected"], default="pilot")
     parser.add_argument("--pretrained-checkpoint", type=Path)
+    parser.add_argument("--finetune-mode", choices=["lora", "full"], default="lora")
+    parser.add_argument("--fsdp-devices", type=int, default=1)
+    parser.add_argument("--num-workers", type=int, default=2)
+    parser.add_argument("--synthetic-data", action="store_true", help="Smoke-test random weights and fake inputs only.")
     args = parser.parse_args(arguments)
+    if args.synthetic_data and args.command != "smoke":
+        parser.error("--synthetic-data is only allowed for the bounded smoke command")
     os.environ["JAX_PLATFORMS"] = "cpu" if args.command in {"stats", "client"} else "cuda"
     logging.basicConfig(level=logging.INFO)
 
@@ -63,9 +69,14 @@ def main(command: str | None = None, arguments: list[str] | None = None) -> None
         assert all(device.platform == "gpu" for device in devices), devices
         value = np.asarray(jax.jit(lambda x: x @ x)(jnp.eye(32)))
         assert np.allclose(value, np.eye(32))
+        totals = jax.pmap(lambda x: jax.lax.psum(x, "devices"), axis_name="devices")(
+            jnp.arange(len(devices), dtype=jnp.float32)
+        )
+        assert np.allclose(np.asarray(totals), sum(range(len(devices)))), totals
         report = {
             "jax_devices": [str(device) for device in devices],
             "jax_gpu_matmul": "passed",
+            "jax_device_sum": "passed",
             "torch_version": torch.__version__,
             "packages": {
                 name: metadata.version(name)
@@ -85,7 +96,22 @@ def main(command: str | None = None, arguments: list[str] | None = None) -> None
         batch_size=args.batch_size,
         steps=2 if args.command == "smoke" else args.steps,
         resume=args.resume,
+        finetune_mode=args.finetune_mode,
+        fsdp_devices=args.fsdp_devices,
+        num_workers=args.num_workers,
     )
+    if args.synthetic_data:
+        from openpi.training.weight_loaders import NoOpWeightLoader
+
+        cfg = dataclasses.replace(
+            cfg,
+            name="synthetic_" + cfg.name,
+            data=config_module.FakeDataConfig(),
+            weight_loader=NoOpWeightLoader(),
+            # FakeDataset generates arrays with JAX; keep it in the parent process.
+            num_workers=0,
+            policy_metadata={"synthetic_setup_check": True, "task_success_evaluated": False},
+        )
     if args.command == "stats" and args.variant == "corrected":
         from ambench_learn.policies.pi.stable_stats import compute_stable_stats
 
@@ -118,6 +144,30 @@ def main(command: str | None = None, arguments: list[str] | None = None) -> None
         (artifact_dir / "normalization_validation.json").write_text(json.dumps(report, indent=2) + "\n")
         return
     if args.command in {"train", "smoke"}:
+        if not args.synthetic_data:
+            dataset_root = ROOT / "datasets" / DATASET
+            norm_root = Path(cfg.data.assets.assets_dir) if cfg.data.assets.assets_dir else cfg.assets_dirs
+            required = [
+                dataset_root / "meta" / filename
+                for filename in ("info.json", "episodes.jsonl", "episodes_stats.jsonl", "tasks.jsonl")
+            ]
+            required.extend([
+                norm_root / DATASET / "norm_stats.json",
+                ROOT / "cache/openpi/big_vision/paligemma_tokenizer.model",
+            ])
+            if not args.resume:
+                required.append(Path(cfg.weight_loader.params_path) / "_METADATA")
+            missing = [str(path) for path in required if not path.is_file()]
+            if missing:
+                raise FileNotFoundError(
+                    "Complete and verify the artifact transfer before training. Missing: " + ", ".join(missing)
+                )
+            info = json.loads((dataset_root / "meta/info.json").read_text())
+            episode_files = list((dataset_root / "data").rglob("*.parquet"))
+            if len(episode_files) != info["total_episodes"]:
+                raise ValueError(
+                    f"Incomplete dataset: {len(episode_files)} episode files, expected {info['total_episodes']}"
+                )
         # Only redirect upstream's hard-coded cache path. Keep ext/openpi untouched.
         source_path = REPO / "ext/openpi/scripts/train.py"
         original = source_path.read_text()
@@ -130,12 +180,17 @@ def main(command: str | None = None, arguments: list[str] | None = None) -> None
         local_path.write_text(local_source)
         sys.path.insert(0, str(runtime))
         train = importlib.import_module("train_local_cache")
+        (artifact_dir / "train_config.txt").write_text(repr(cfg) + "\n")
         started = time.monotonic()
         train.main(cfg)
         report = {
             "command": args.command,
             "steps": cfg.num_train_steps,
             "batch_size": cfg.batch_size,
+            "finetune_mode": args.finetune_mode,
+            "fsdp_devices": cfg.fsdp_devices,
+            "synthetic_data": args.synthetic_data,
+            "resumed": args.resume,
             "elapsed_seconds": time.monotonic() - started,
             "checkpoint_dir": str(cfg.checkpoint_dir),
             "completed": True,

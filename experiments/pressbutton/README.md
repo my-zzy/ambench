@@ -322,3 +322,125 @@ results, normalization equality, and terminal regression tests passed. No new
 GPU training, rendering, or simulator stepping was performed. These checks
 preserve the historical task-success claims rather than treating code migration
 as a fresh evaluation.
+
+## Server full fine-tuning
+
+The bulk artifact transfer remains paused. Complete the environment and hardware
+checks independently; the synthetic smoke test below needs no dataset, tokenizer,
+or pretrained checkpoint. It does not measure PressButton task performance.
+
+Use a dedicated Python 3.11 Conda prefix under your home directory. The simulator
+and ACT dependencies are not needed on a training-only host. Initialize only the
+pinned OpenPI checkout, then install its locked dependencies into the new prefix:
+
+```bash
+git submodule update --init ext/openpi
+mkdir -p outputs/openpi/server_setup/cache/conda
+CONDA_PKGS_DIRS="$PWD/outputs/openpi/server_setup/cache/conda" \
+  conda create --prefix "$HOME/.conda/envs/ambench_openpi" \
+  --override-channels -c conda-forge python=3.11 pip rsync --copy -y
+bash scripts/setup/install_openpi_conda.sh \
+  "$HOME/.conda/envs/ambench_openpi" "$PWD/outputs/openpi"
+```
+
+Transfer these paths into the same ignored work directory, preserving their
+relative paths. Verify a file-size/SHA-256 manifest after transfer:
+
+- `datasets/my-zzy/pressbutton_30hz_terminal_v2/` — corrected 100-episode export.
+- `assets/pi0_pressbutton_lora_30hz_corrected/` — validated normalization assets.
+- `pretrained/pi0_base/` — verified official base checkpoint.
+- `cache/openpi/big_vision/paligemma_tokenizer.model` — tokenizer.
+
+The Conda installer exports the frozen OpenPI lock to `pylock.toml`, retaining
+exact artifact URLs and SHA-256 hashes rather than resolving versions again from
+package indexes. This also preserves upstream dependency overrides. It
+does not replace the Conda prefix with a virtualenv or modify another environment.
+The installation log and exported lock belong under `outputs/openpi/`.
+The installer uses direct connections and does not change global proxy settings.
+Its explicit `PYPI_PACKAGES_URL` setting selects the Aliyun file mirror for this
+server workflow. Only download URLs change in `pylock.direct.toml`; versions and
+artifact hashes remain identical to the exported lock. PyTorch's own URLs stay
+unchanged. No global pip, uv, or Conda source configuration is modified.
+The learning source is registered with an environment-local `.pth` file; the
+`ambench_learn` distribution is not installed because its metadata assumes
+Isaac/ACT dependencies, including a conflicting Gymnasium requirement. Use this
+environment for OpenPI training/serving, and the simulator environment for rollouts.
+
+Review the explicit GPU allocation in `openpi_conda.sh` against `nvidia-smi`
+before starting a job. Check runtime and a two-step synthetic full-training run
+before the artifacts arrive:
+
+```bash
+bash experiments/pressbutton/openpi_conda.sh runtime doctor
+bash experiments/pressbutton/openpi_conda.sh runtime smoke --synthetic-data \
+  --variant corrected --finetune-mode full --fsdp-devices 2 \
+  --batch-size 32 --exp-name setup_synthetic \
+  --artifact-dir outputs/openpi/server_setup/synthetic
+# Repeat the same smoke command with --resume to check checkpoint restoration.
+```
+
+Synthetic checks use random weights and upstream fake inputs, force zero loader
+workers, and write into a `synthetic_` checkpoint namespace. They cannot be
+selected by the real training entrypoint. After the artifact transfer is complete
+and verified, run a bounded check with the actual data and pretrained base:
+
+```bash
+bash experiments/pressbutton/openpi_conda.sh train \
+  --variant corrected --finetune-mode full --fsdp-devices 2 \
+  --batch-size 32 --num-workers 8 --steps 20 --exp-name full_smoke \
+  --run-dir outputs/openpi/runs/full_smoke \
+  --artifact-dir outputs/openpi/runs/full_smoke/validation
+```
+
+After checking memory use, finite training metrics, and checkpoint reload, launch
+the longer experiment with a new experiment name and run directory:
+
+```bash
+bash experiments/pressbutton/openpi_conda.sh train \
+  --variant corrected --finetune-mode full --fsdp-devices 2 \
+  --batch-size 32 --num-workers 8 --steps 20000 --exp-name full_20k \
+  --run-dir outputs/openpi/runs/full_20k \
+  --artifact-dir outputs/openpi/runs/full_20k/validation
+```
+
+Full tuning uses `gemma_2b` and `gemma_300m`, freezes no model parameters, reuses
+the corrected statistics, and starts from the official base. Its learning-rate
+decay follows the requested training budget (minimum 101 steps for short smoke
+tests); LoRA retains its historical 10,000-step schedule. EMA remains disabled.
+Full checkpoints use the separate `pi0_pressbutton_full_30hz_corrected` namespace.
+The proposed 20,000 × 32 budget presents 640,000 anchors, approximately 25.3
+passes over 25,294 frames. Capacity and throughput must be measured on the host.
+
+Pass `--finetune-mode full --variant corrected` when reloading a full checkpoint
+with the `infer` or `serve` entrypoint. Training completion and finite inference
+do not establish task success; use the paired Isaac Lab rollout protocol above.
+To resume, keep the experiment name, total step budget, and model settings,
+add `--resume`, and choose a new `--run-dir` for the supervisor logs.
+
+### Server validation — November 6, 2026
+
+The home Conda environment passed package compatibility checks. All 209
+versioned dependencies in the platform-selected lock match, and mirrored
+artifact hashes are unchanged. The two editable OpenPI packages use the pinned
+submodule; the learning source is registered separately as described above.
+Python is 3.11.18, JAX/JAXlib 0.5.3, Flax 0.10.2, Orbax 0.11.13, and PyTorch
+2.9.0+cu130.
+
+GPU matrix computation and a cross-device sum passed with all eight RTX PRO
+5000 GPUs visible. The full-model synthetic smoke run completed two updates at
+global batch 32 with two FSDP devices on GPUs 0 and 1. Losses were 2.3819 and
+2.3421; gradients were finite. Five-second memory samples peaked at 33,651 and
+33,573 MiB. Initialization, compilation, updates, and checkpoint saving took
+69.3 seconds; this short run is not a steady-state throughput benchmark.
+Checkpoint restore passed in a separate process without adding updates.
+
+All three server setup regression checks passed. The two previously transferred
+247-frame parquet episodes decoded correctly, with finite actions/poses and
+30 Hz timestamps. No additional dataset, tokenizer, normalization, or pretrained
+weight files were uploaded. These checks do not replace full-dataset loading,
+pretrained-weight loading, real-data training, or Isaac Lab rollout validation.
+
+Detailed logs, package inventories, GPU samples, and JSON reports are on the
+server under `outputs/openpi/server_setup/`. All validation processes stopped.
+The artifact transfer and real fine-tuning remain pending; no long experiment
+will start automatically.

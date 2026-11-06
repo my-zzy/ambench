@@ -1,0 +1,203 @@
+{
+  "source": "gs://openpi-assets/checkpoints/pi0_base",
+  "items": [
+    {
+      "name": "checkpoints/pi0_base/assets/arx/norm_stats.json",
+      "size": "2796",
+      "md5Hash": "bYlnoj1VmU3yyxeI5AzZCA==",
+      "generation": "1748456809290665"
+    },
+    {
+      "name": "checkpoints/pi0_base/assets/arx_mobile/norm_stats.json",
+      "size": "2865",
+      "md5Hash": "FfTGCbWoD6qv/FSz9J8UDg==",
+      "generation": "1748456805794924"
+    },
+    {
+      "name": "checkpoints/pi0_base/assets/droid/norm_stats.json",
+      "size": "2413",
+      "md5Hash": "mjiBOkTRND6KG0i8nLPOVQ==",
+      "generation": "1748456810418896"
+    },
+    {
+      "name": "checkpoints/pi0_base/assets/fibocom_mobile/norm_stats.json",
+      "size": "2968",
+      "md5Hash": "WP+KUJ7cyXDGcDf+Uw/FWA==",
+      "generation": "1748456808528104"
+    },
+    {
+      "name": "checkpoints/pi0_base/assets/franka/norm_stats.json",
+      "size": "2424",
+      "md5Hash": "Xv9U1SmiXdqAIkMGi4FMBA==",
+      "generation": "1748456810245396"
+    },
+    {
+      "name": "checkpoints/pi0_base/assets/trossen/norm_stats.json",
+      "size": "2797",
+      "md5Hash": "XgXyiDUy7zp3MzPj05z+VA==",
+      "generation": "1748456810028387"
+    },
+    {
+      "name": "checkpoints/pi0_base/assets/trossen_mobile/norm_stats.json",
+      "size": "2867",
+      "md5Hash": "MAYEVfU/6fxPWsToI2NpoA==",
+      "generation": "1748456809055346"
+    },
+    {
+      "name": "checkpoints/pi0_base/assets/ur5e/norm_stats.json",
+      "size": "2354",
+      "md5Hash": "I74QM3J+7py7Ts15Phmf4g==",
+      "generation": "1748456809231404"
+    },
+    {
+      "name": "checkpoints/pi0_base/assets/ur5e_dual/norm_stats.json",
+      "size": "2806",
+      "md5Hash": "+exKy6NXPbAV241JytirxA==",
+      "generation": "1748456810135764"
+    },
+    {
+      "name": "checkpoints/pi0_base/params/_CHECKPOINT_METADATA",
+      "size": "92",
+      "md5Hash": "an8X2UpOj/9wFJPK8tPRLg==",
+      "generation": "1748456820097208"
+    },
+    {
+      "name": "checkpoints/pi0_base/params/_METADATA",
+      "size": "19031",
+      "md5Hash": "yQ+FrRQy9rZQR7M1DezBzA==",
+      "generation": "1748456809854209"
+    },
+    {
+      "name": "checkpoints/pi0_base/params/_sharding",
+      "size": "7607",
+      "md5Hash": "Qaa8hHGwcRua42eXRgm+1g==",
+      "generation": "1748456805765276"
+    },
+    {
+      "name": "checkpoints/pi0_base/params/d/85a4b908b188b86024ebb92e85065acd",
+      "size": "2184",
+      "md5Hash": "rCsf5QgQ2sZF50bzX7fpOQ==",
+      "generation": "1748456805626233"
+    },
+    {
+      "name": "checkpoints/pi0_base/params/manifest.ocdbt",
+      "size": "117",
+      "md5Hash": "1aF+sZk4fFZVBQH0+ngc2A==",
+      "generation": "1748456809177376"
+    },
+    {
+      "name": "checkpoints/pi0_base/params/ocdbt.process_0/d/085d261a6434a2182b9cf8204a14f929",
+      "size": "203056647",
+      "md5Hash": "PhUhjaFznWTRfZHpbX13Sg==",
+      "generation": "1748456814235807"
+    },
+    {
+      "name": "checkpoints/pi0_base/params/ocdbt.process_0/d/148068583a1e9abda7c46b410e91850f",
+      "size": "2240220744",
+      "md5Hash": "h3PMaHtPKuwIlTo7rjPL4w==",
+      "generation": "1748456871038239"
+    },
+    {
+      "name": "checkpoints/pi0_base/params/ocdbt.process_0/d/2f72ae7e4e549700e9d7da10816ed9a4",
+      "size": "25249068",
+      "md5Hash": "IKlvMnjrjnOTBXl0vcY0nQ==",
+      "generation": "1748456811482628"
+    },
+    {
+      "name": "checkpoints/pi0_base/params/ocdbt.process_0/d/309555f68bee51df688c4564b4d66fa5",
+      "size": "1048478",
+      "md5Hash": "qcJ6f/IK16YntVcgYZPiGA==",
+      "generation": "1748456808448087"
+    },
+    {
+      "name": "checkpoints/pi0_base/params/ocdbt.process_0/d/450c3d3cb6793dc644c1faf981296eb3",
+      "size": "34976130",
+      "md5Hash": "vaj1mHjlZUPdCS5QA95pAg==",
+      "generation": "1748456809690202"
+    },
+    {
+      "name": "checkpoints/pi0_base/params/ocdbt.process_0/d/45c6cbcc04a07d5f963bcf46cba903c4",
+      "size": "3077824146",
+      "md5Hash": "S6CaE0VV58FkgmrZqB5HYQ==",
+      "generation": "1748456883449420"
+    },
+    {
+      "name": "checkpoints/pi0_base/params/ocdbt.process_0/d/4e5aa230b6c768224fb6b77d78d6a1be",
+      "size": "1649",
+      "md5Hash": "TtAeZdoiwYIBgiuhYtIwxA==",
+      "generation": "1748456805848230"
+    },
+    {
+      "name": "checkpoints/pi0_base/params/ocdbt.process_0/d/5e775a3f399b6add8c3c8330df655e1b",
+      "size": "5379",
+      "md5Hash": "puOPiUy7rY0gFhD8I/tyzg==",
+      "generation": "1748456809714662"
+    },
+    {
+      "name": "checkpoints/pi0_base/params/ocdbt.process_0/d/5f605020f3dadefc18287f67f369e264",
+      "size": "132845636",
+      "md5Hash": "g1JlTPndVbJiBK1zg+U2/Q==",
+      "generation": "1748456808708332"
+    },
+    {
+      "name": "checkpoints/pi0_base/params/ocdbt.process_0/d/6629f15468f4d0cc39fb27518b7034a8",
+      "size": "2173",
+      "md5Hash": "JJFTHN0ix5aRPE1fkMNghg==",
+      "generation": "1748456805983246"
+    },
+    {
+      "name": "checkpoints/pi0_base/params/ocdbt.process_0/d/808abec8853273a1e0076b0e42d19910",
+      "size": "209",
+      "md5Hash": "NtJWthUikHHrV7eP2zOnEg==",
+      "generation": "1748456808207847"
+    },
+    {
+      "name": "checkpoints/pi0_base/params/ocdbt.process_0/d/8dd6f7ae99ab482b841a1eefa796bb41",
+      "size": "1040",
+      "md5Hash": "lk/5xHlXVmp455B2ZducVA==",
+      "generation": "1748456805951828"
+    },
+    {
+      "name": "checkpoints/pi0_base/params/ocdbt.process_0/d/93fcf358bb740a5f61526a13e9a2c769",
+      "size": "839453563",
+      "md5Hash": "Q8aHhINdHhN6yRs0AYAy5A==",
+      "generation": "1748456825536158"
+    },
+    {
+      "name": "checkpoints/pi0_base/params/ocdbt.process_0/d/99debaeabd76bd2cc1600905278c454b",
+      "size": "559736645",
+      "md5Hash": "suL7tdEHlXIOQ3EEsAks/Q==",
+      "generation": "1748456816639053"
+    },
+    {
+      "name": "checkpoints/pi0_base/params/ocdbt.process_0/d/c5e0b7744afd7fde8b33a80d7f0329bc",
+      "size": "2240216669",
+      "md5Hash": "q0Zp122vEdUeb7ww1JsI/A==",
+      "generation": "1748456859522055"
+    },
+    {
+      "name": "checkpoints/pi0_base/params/ocdbt.process_0/d/d5e67a46c20fea80fd9ccf63a434178c",
+      "size": "993821460",
+      "md5Hash": "WX57yk9Trdnaa8GPIDXLlA==",
+      "generation": "1748456831472990"
+    },
+    {
+      "name": "checkpoints/pi0_base/params/ocdbt.process_0/d/fc0caaf15ec5a8930e6d0a269722cbe6",
+      "size": "545792151",
+      "md5Hash": "vakgSVOsSc69xwMnH0Wgjw==",
+      "generation": "1748456822618125"
+    },
+    {
+      "name": "checkpoints/pi0_base/params/ocdbt.process_0/d/fec2923fef877d6b2a636a44d72670b8",
+      "size": "1120134616",
+      "md5Hash": "J4i2s0gi8rYd/w2P2w6K1A==",
+      "generation": "1748456834821220"
+    },
+    {
+      "name": "checkpoints/pi0_base/params/ocdbt.process_0/manifest.ocdbt",
+      "size": "765",
+      "md5Hash": "FVHrvrvbRNs0V+Ry8ztkvw==",
+      "generation": "1748456808403886"
+    }
+  ]
+}

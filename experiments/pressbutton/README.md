@@ -73,3 +73,59 @@ Historical result: ACT 20/20 and scripted expert 20/20. This is a single-task,
 fixed-instruction development baseline; it does not establish language
 generalization. Raw evidence remains in the original ignored run. Reconstruction
 checks aggregate that saved evidence; training and simulation are not rerun.
+
+## 3. Isolated OpenPI setup — November 2–4, 2026
+
+Sources: `outputs/openpi/{install.sh,run.py,run.sh,local_config.py}` and the
+checkpoint downloader in `setup-20261102_2119/`. The implementation is now in
+`ambench_learn.policies.pi`; it has no imports from ignored run directories.
+OpenPI remains at the repository's pinned submodule commit and frozen `uv.lock`.
+Its JAX environment is separate from the simulator/ACT environment.
+
+```bash
+git submodule update --init --recursive ext/openpi
+bash scripts/setup/install_openpi.sh outputs/openpi
+python scripts/setup/download_pi0_checkpoint.py --destination outputs/openpi/pretrained/pi0_base
+# Check an already transferred checkpoint without downloading:
+python scripts/setup/download_pi0_checkpoint.py --destination outputs/openpi/pretrained/pi0_base --verify-only
+```
+
+`pi0_base_manifest.json` pins the official GCS object generations, sizes, and MD5
+checksums used locally. It is a dependency manifest, not model weights. Transfers
+resume in a sibling `.partial` directory, and only verified files are promoted.
+Use an ignored output path for weights; the base checkpoint is approximately
+12 GB. Installation and downloading are explicit commands, never import effects.
+
+Export the canonical dataset in the simulator environment using the tracked
+`scripts/data/export_lerobot_to_openpi.py` with `--target_hz 30`,
+`--omit_base_image`, `--task_prompt 'press the button'`, and
+`--repo_id my-zzy/pressbutton_30hz`; place it under
+`outputs/openpi/datasets/my-zzy/pressbutton_30hz`. This is the historical floor
+resampling path; milestone 6 provides the corrected terminal-preserving path.
+
+```bash
+nvidia-smi
+bash experiments/pressbutton/openpi.sh runtime doctor
+# Historical normalization; milestone 6 replaces this for new corrected runs:
+bash experiments/pressbutton/openpi.sh compute_norm_stats
+bash experiments/pressbutton/openpi.sh infer
+bash experiments/pressbutton/openpi.sh runtime smoke --exp-name setup_smoke
+bash experiments/pressbutton/openpi.sh infer --checkpoint <saved-smoke-checkpoint>
+bash experiments/pressbutton/openpi.sh serve --checkpoint <saved-smoke-checkpoint>
+# In a second terminal, exercise the localhost WebSocket contract:
+bash experiments/pressbutton/openpi.sh runtime client
+```
+
+The wrapper has a small explicit machine configuration block. Its modules also
+accept `--work-dir`, `--repo-id`, and `--pretrained-checkpoint`. With an activated
+OpenPI environment, the training entrypoint is
+`python -m ambench_learn.policies.pi.train`. Cache redirection generates a runtime
+copy of the pinned upstream trainer in ignored storage and asserts the expected
+upstream cache expression; it does not edit `ext/openpi`. Existing normalization
+files are never overwritten by the setup command. Serving binds to localhost
+and filters observations to the wrist-only schema used for training.
+
+Historical validation covered GPU inference, two LoRA updates, checkpoint reload,
+and the WebSocket roundtrip. It did not establish task success. The upstream
+LoRA filter also trains vision/projection parameters. For reconstruction, config
+parity and CPU checks are performed; GPU setup is not repeated.

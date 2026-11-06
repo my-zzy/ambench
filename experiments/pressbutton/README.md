@@ -162,3 +162,54 @@ minutes of training. The 20-case schedule matches ACT, but ACT received 64 times
 as many sample presentations. Latency measurements in synchronous simulation do
 not establish real-time flight operation. Reconstructed aggregation reproduces
 the saved 1/20 result; no new learned-policy rollout was run.
+
+## 5. Failure diagnostics — November 5, 2026, before correction
+
+Sources: `outputs/openpi/diagnostics/20261105_1321/`. Diagnostics are separate
+from optimizer updates and never replace checkpoint statistics. They cover the
+public encode/normalize/pad/unnormalize/decode chain, the original exporter tails,
+frozen-model errors on expert observations, and paired simulator replay controls.
+
+```bash
+# CPU, OpenPI environment:
+bash experiments/pressbutton/openpi.sh audit --checkpoint <pilot-checkpoint> \
+  --output-dir outputs/openpi/diagnostic_reproduction
+python scripts/data/audit_openpi_tails.py --source <canonical-dataset> \
+  --export outputs/openpi/datasets/my-zzy/pressbutton_30hz \
+  --output outputs/openpi/diagnostic_reproduction/training_terminal_audit.json
+# GPU, simulator environment; two seeds × four fresh expert episodes:
+python scripts/data/diagnose_pressbutton_replay.py --mode collect \
+  --output-dir outputs/openpi/diagnostic_reproduction --headless --device cuda:0
+# CPU, OpenPI environment; creates heldout_export and converted replay records:
+bash experiments/pressbutton/openpi.sh audit --checkpoint <pilot-checkpoint> \
+  --heldout-dir outputs/openpi/diagnostic_reproduction/heldout \
+  --output-dir outputs/openpi/diagnostic_reproduction
+# GPU, simulator environment; default replays raw and adapter-roundtrip commands:
+python scripts/data/diagnose_pressbutton_replay.py --mode replay \
+  --output-dir outputs/openpi/diagnostic_reproduction --headless --device cuda:0
+# Repeat with --replay-variant native_120hz, raw_hold_30hz, and terminal_preserved_30hz.
+# GPU, OpenPI environment; no simulator or optimizer updates:
+bash experiments/pressbutton/openpi.sh prediction_errors --checkpoint <pilot-checkpoint> \
+  --dataset-root outputs/openpi/datasets/my-zzy/pressbutton_30hz \
+  --reference-dir outputs/openpi/diagnostic_reproduction \
+  --output-dir outputs/openpi/diagnostic_reproduction/predictions
+```
+
+The fixed prediction protocol uses eight training and eight fresh episodes,
+12 anchors per episode, and three draws per anchor. Errors on overlapping expert
+chunks are not independent task trials and do not evaluate recovery from the
+policy's own mistakes. Replay checks initial robot, button, and wall state.
+Success flags are authoritative; post-step button displacement may miss a peak
+because automatic reset has already occurred.
+
+Historical controls: native expert/replay 8/8, floor-resampled raw/roundtrip 1/8,
+four-tick command hold 4/8, and appended terminal command 8/8. All 100 training
+episodes lost their final command: median final-target difference 8.2 mm. This is
+EE-target distance, not a task tolerance. Adapter roundtrip was accurate to
+0.248 micrometres, but saved action `qw` standard deviation was zero versus a
+float64 recomputation of 8.29494e-6. All sampled gripper sign errors occurred at
+frame zero. These observations motivated the next milestone; they do not prove
+that either data issue explains the entire learned-policy failure.
+
+Reconstruction validation repeats the CPU training-tail and full adapter audits
+against the original data. GPU prediction and paired replay are not rerun.

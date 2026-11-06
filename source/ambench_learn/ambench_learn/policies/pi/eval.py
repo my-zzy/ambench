@@ -10,10 +10,10 @@ from __future__ import annotations
 
 import argparse
 import collections
+import json
 import socket
+import time
 from urllib.parse import urlparse
-
-from isaaclab.app import AppLauncher
 
 from ambench_learn.eval.common import (
     EvalBatch,
@@ -28,10 +28,14 @@ from ambench_learn.eval.common import (
     wrap_video,
 )
 from ambench_learn.eval.run import EvalRun
+from isaaclab.app import AppLauncher
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="Evaluate OpenPI policies zero-shot on Isaac Lab environments.")
 add_common_eval_args(parser)
+parser.add_argument("--rollout-seed-base", type=int, default=None)
+parser.add_argument("--scene-video-size", type=int, nargs=2, metavar=("WIDTH", "HEIGHT"), default=None)
+parser.add_argument("--record-inference-timing", action="store_true")
 parser.add_argument("--prompt", type=str, default=None, help="Language instruction prompt (required).")
 parser.add_argument("--host", type=str, default="localhost", help="Host running the remote OpenPI policy server.")
 parser.add_argument("--port", type=int, default=8000, help="Port used by the remote OpenPI policy server.")
@@ -100,12 +104,6 @@ import gymnasium as gym
 import isaaclab_tasks  # noqa: F401
 import numpy as np
 import torch
-from isaaclab_tasks.utils import parse_env_cfg
-from openpi_client import websocket_client_policy
-
-import ambench.tasks  # noqa: F401
-from ambench.evaluation import SuccessCriteriaTracker
-from ambench.recording import RecordVideo
 from ambench_learn.data.action_resampling import compute_stride
 from ambench_learn.data.action_semantics import (
     resolve_eval_action_semantics as _resolve_eval_action_semantics,
@@ -115,6 +113,13 @@ from ambench_learn.policies.pi.eval_utils import (
     default_action_for_env,
     expand_policy_actions,
 )
+from isaaclab.utils.seed import configure_seed
+from isaaclab_tasks.utils import parse_env_cfg
+from openpi_client import websocket_client_policy
+
+import ambench.tasks  # noqa: F401
+from ambench.evaluation import SuccessCriteriaTracker
+from ambench.recording import RecordVideo
 
 # set numpy print options
 np.set_printoptions(precision=4, suppress=True, floatmode="fixed")
@@ -176,7 +181,20 @@ def _run_rollout_batch(
                         action_semantics=action_semantics,
                         prompt=args.prompt,
                     )
+                    inference_start = time.perf_counter()
                     output = client.infer(example)
+                    if args.record_inference_timing:
+                        with (eval_run.output_dir / "policy_inference.jsonl").open("a") as timing_file:
+                            timing_file.write(
+                                json.dumps({
+                                    "rollout_index": batch.start + env_index,
+                                    "env_index": env_index,
+                                    "step": step,
+                                    "roundtrip_ms": (time.perf_counter() - inference_start) * 1000,
+                                    "server_infer_ms": output.get("server_timing", {}).get("infer_ms"),
+                                })
+                                + "\n"
+                            )
                     actions = np.asarray(output["actions"], dtype=np.float32).copy()
                     action_plans[env_index] = expand_policy_actions(
                         actions,
@@ -262,6 +280,7 @@ def _run_rollout_batch(
 
 def main() -> None:
     args = args_cli
+    configure_seed(args.seed)
     client = websocket_client_policy.WebsocketClientPolicy(host=socket_host, port=socket_port)
     server_metadata = client.get_server_metadata()
     run_dir = resolve_eval_output_dir(policy="PI", task=args.task, output_dir=args.output_dir)
@@ -269,6 +288,8 @@ def main() -> None:
     scene_camera_cfg = (
         make_scene_camera_cfg() if args.save_video and "scene_camera" in args.video_camera_names else None
     )
+    if scene_camera_cfg is not None and args.scene_video_size is not None:
+        scene_camera_cfg.width, scene_camera_cfg.height = args.scene_video_size
     env_cfg = configure_env_cfg(
         parse_env_cfg=parse_env_cfg,
         task=args.task,
@@ -308,6 +329,8 @@ def main() -> None:
         metadata={
             **build_common_eval_metadata(args, output_dir=run_dir),
             "Policy ID": args.policy_id,
+            "Rollout seed base": args.seed if args.rollout_seed_base is None else args.rollout_seed_base,
+            "Scene video resolution": args.scene_video_size,
             "Prompt": args.prompt,
             "Server metadata": server_metadata,
             "Eval overrides": eval_overrides or None,
@@ -334,7 +357,7 @@ def main() -> None:
         requested_rollouts=args.num_rollouts,
         num_envs=env.unwrapped.num_envs,
         run_batch=run_batch,
-        base_seed=args.seed,
+        base_seed=args.seed if args.rollout_seed_base is None else args.rollout_seed_base,
         video_folder=video_folder,
     )
 

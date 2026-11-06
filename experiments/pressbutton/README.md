@@ -129,3 +129,36 @@ Historical validation covered GPU inference, two LoRA updates, checkpoint reload
 and the WebSocket roundtrip. It did not establish task success. The upstream
 LoRA filter also trains vision/projection parameters. For reconstruction, config
 parity and CPU checks are performed; GPU setup is not repeated.
+
+## 4. First π₀ training and evaluation — November 4, 2026
+
+Sources: `outputs/openpi/runs/20261104_1315/`. Train with an optional separate
+run directory to capture the upstream log, CSV metrics, and atomic progress JSON:
+
+```bash
+bash experiments/pressbutton/openpi.sh train --exp-name pressbutton_pilot_reproduction \
+  --steps 10000 --batch-size 1 --run-dir outputs/openpi/pilot_reproduction
+# After training exits and finishes saving:
+bash experiments/pressbutton/openpi.sh infer --checkpoint <checkpoint-directory>
+bash experiments/pressbutton/openpi.sh serve --checkpoint <checkpoint-directory> --port 8000
+# In a simulator-environment terminal, with sufficient free GPU memory:
+bash experiments/pressbutton/pi_eval.sh outputs/openpi/pilot_reproduction 8000
+python -m ambench_learn.eval.summarize --input-dir outputs/openpi/pilot_reproduction/eval \
+  --output-dir outputs/openpi/pilot_reproduction/report
+python -m ambench_learn.eval.validate_videos --input-dir outputs/openpi/pilot_reproduction \
+  --output-dir outputs/openpi/pilot_reproduction/report --policy pi
+```
+
+The PI evaluator now exposes the same separate startup/reset seeds and external
+video dimensions as ACT. Optional inference timing records client roundtrip and
+server inference time. The supervisor stops only its own child process group,
+records failed/interrupted status, and refuses an existing log directory. A
+checkpoint is considered complete only after the trainer confirms saving.
+`--run-dir` is a supervisor argument; the regular trainer's `--help` lists model
+and artifact arguments. No supervisor automatically starts another training run.
+
+Historical result: **1/20**, after 10,000 updates × batch 1, approximately 24.46
+minutes of training. The 20-case schedule matches ACT, but ACT received 64 times
+as many sample presentations. Latency measurements in synchronous simulation do
+not establish real-time flight operation. Reconstructed aggregation reproduces
+the saved 1/20 result; no new learned-policy rollout was run.

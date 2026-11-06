@@ -15,7 +15,7 @@ import time
 from pathlib import Path
 
 
-def main(command: str | None = None) -> None:
+def main(command: str | None = None, arguments: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     if command is None:
         parser.add_argument("command", choices=["doctor", "stats", "train", "smoke", "infer", "serve", "client"])
@@ -31,7 +31,7 @@ def main(command: str | None = None) -> None:
     parser.add_argument("--work-dir", type=Path, default=Path("outputs/openpi"))
     parser.add_argument("--repo-id", default="my-zzy/pressbutton_30hz")
     parser.add_argument("--pretrained-checkpoint", type=Path)
-    args = parser.parse_args()
+    args = parser.parse_args(arguments)
     os.environ["JAX_PLATFORMS"] = "cpu" if args.command in {"stats", "client"} else "cuda"
     logging.basicConfig(level=logging.INFO)
 
@@ -131,6 +131,7 @@ def main(command: str | None = None) -> None:
             "task_success_evaluated": False,
         }
         (cfg.checkpoint_dir / "local_run_summary.json").write_text(json.dumps(report, indent=2) + "\n")
+        print("AMBENCH_TRAIN_COMPLETED " + json.dumps(report), flush=True)
         return
 
     def example() -> dict:

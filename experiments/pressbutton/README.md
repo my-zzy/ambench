@@ -213,3 +213,89 @@ that either data issue explains the entire learned-policy failure.
 
 Reconstruction validation repeats the CPU training-tail and full adapter audits
 against the original data. GPU prediction and paired replay are not rerun.
+
+## 6. Terminal-preserving export and stable statistics — November 5, 2026
+
+Sources: `outputs/openpi/runs/20261105_1505_corrected/`. The correction remains
+opt-in so the original ACT and π₀ pilot can still be reproduced. It does not
+change global resampling behavior or overwrite old datasets/statistics.
+
+```bash
+# OpenPI environment, CPU. The new dataset directory must not exist:
+python scripts/data/repair_openpi_terminals.py --source <canonical-dataset> \
+  --original outputs/openpi/datasets/my-zzy/pressbutton_30hz \
+  --output outputs/openpi/datasets/my-zzy/pressbutton_30hz_terminal_v2
+bash experiments/pressbutton/openpi.sh compute_norm_stats --variant corrected \
+  --artifact-dir outputs/openpi/corrected_reproduction
+# The following commands use the corrected dataset and its own asset namespace:
+bash experiments/pressbutton/openpi.sh train --variant corrected \
+  --exp-name pressbutton_corrected_reproduction --steps 10000 --batch-size 1 \
+  --run-dir outputs/openpi/corrected_reproduction/training
+bash experiments/pressbutton/openpi.sh infer --variant corrected --checkpoint <corrected-checkpoint>
+bash experiments/pressbutton/openpi.sh serve --variant corrected --checkpoint <corrected-checkpoint> --port 8001
+# Simulator environment, after training exits:
+bash experiments/pressbutton/pi_eval.sh outputs/openpi/corrected_reproduction 8001
+python scripts/data/diagnose_pressbutton_replay.py --mode replay --replay-variant corrected_30hz \
+  --reference-dir outputs/openpi/diagnostic_reproduction \
+  --output-dir outputs/openpi/corrected_replay --headless --device cuda:0
+```
+
+The repair intentionally supports the measured wrist-only, 8D absolute-EE,
+120-to-30 Hz, one-source-episode-per-parquet protocol. It preserves the original
+samples and appends the missing aligned tail plus the exact last paired
+observation/image/action. The terminal pair may be held to the next 30 Hz grid
+point for at most 25 ms. Other sample rates are rejected. Source data is unchanged.
+The historical export grew from 25,149 to 25,294 frames across the same 100 episodes.
+
+Statistics use float64 centered variance over every overlapping 30-action target,
+including episode-end padding. Constant state channels keep zero variance.
+The implementation checks actual-loader chunks and the public normalized/padded
+roundtrip at episode starts, interiors, and endings. Existing unequal statistics
+are rejected. No test-set observations contribute to normalization.
+
+For a matched offline comparison, run `prediction_errors` on each checkpoint
+with its corresponding `--repo-id`, but use the **same original observation
+dataset** and `--reference-dir` for both. Then:
+
+```bash
+python -m ambench_learn.policies.pi.compare --baseline <pilot-run> \
+  --candidate <corrected-run> --baseline-diagnostics <pilot-predictions> \
+  --candidate-diagnostics <corrected-predictions> --output-dir outputs/openpi/comparison
+```
+
+The comparison checks observation/draw keys, exact target arrays, and rollout
+case identities. Historical result: corrected expert replay **8/8**, corrected
+learned policy **0/20**, versus the pilot's **1/20**. First-eight offline position
+error improved from 1.72 to 1.33 cm on training observations and 1.74 to 1.37 cm
+on fresh expert observations. Both repairs were applied together; this does not
+isolate their individual effects. One changed success among 20 development
+cases does not establish a statistically worse model. No full-parameter or
+longer-budget training has been performed.
+
+Reconstruction checks passed: boundary regression tests, exact equality of a
+real repaired episode with the saved corrected export, all 400 loader/transform
+checks across the complete corrected dataset, and byte-identical normalization:
+`d8901da6594deeaf725f68061bfe1c4c60ac56a3fe49332d8f2ff51f55089ad0`.
+Maximum roundtrip component error is 1.19e-7. Both historical configurations
+match their recovered versions. The paired report reproduces 1/20 versus 0/20
+from saved records. Training, rendering, and simulator rollout were not rerun.
+
+## What Git carries and what must be transferred
+
+Git carries the code, these recipes, dependency manifests, and the pinned
+submodules. See [source mapping](SOURCE_MAP.md) for how ignored scripts were
+recovered or replaced by maintained entrypoints. Clone this fork at the chosen
+commit and initialize OpenPI's submodules on the training server.
+
+Separately transfer the canonical demonstrations, the two exported datasets if
+reproducing both pilots, their normalization assets, the verified π₀ base, and
+any checkpoint/replay records needed for evaluation. Keep their paths under an
+ignored work directory. OpenPI's tokenizer cache may also be transferred for
+offline operation; rebuilding the environment alone does not download that
+model asset. Recreate the Python environment from the pinned lock rather than
+copying `.venv`, CUDA libraries, or workstation caches wholesale.
+
+The original timestamped runs and presentation files remain in place. Their
+generated reports, videos, checkpoints, and datasets are not added to Git. No
+server installation, file transfer, training, or Git push is part of this history
+reconstruction.

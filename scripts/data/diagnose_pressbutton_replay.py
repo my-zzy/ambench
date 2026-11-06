@@ -62,6 +62,12 @@ def replay_actions(item: dict, variant: str, episode: int) -> np.ndarray:
     """Select the native, held, terminal-preserved, or adapter-roundtrip control."""
     if variant == "native_120hz":
         return item["actions_120hz"]
+    if variant == "corrected_30hz":
+        native = item["actions_120hz"]
+        indices = list(range(0, len(native), 4))
+        if indices[-1] != len(native) - 1:
+            indices.append(len(native) - 1)
+        return native[indices]
     if variant == "terminal_preserved_30hz":
         return np.concatenate([item["actions_30hz"], item["actions_120hz"][-1:]], axis=0)
     if variant in ("raw_30hz", "raw_hold_30hz"):

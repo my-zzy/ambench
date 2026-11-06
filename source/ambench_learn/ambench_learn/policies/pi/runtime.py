@@ -29,7 +29,8 @@ def main(command: str | None = None, arguments: list[str] | None = None) -> None
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--artifact-dir", type=Path, help="Directory for inference/diagnostic outputs.")
     parser.add_argument("--work-dir", type=Path, default=Path("outputs/openpi"))
-    parser.add_argument("--repo-id", default="my-zzy/pressbutton_30hz")
+    parser.add_argument("--repo-id", default=None)
+    parser.add_argument("--variant", choices=["pilot", "corrected"], default="pilot")
     parser.add_argument("--pretrained-checkpoint", type=Path)
     args = parser.parse_args(arguments)
     os.environ["JAX_PLATFORMS"] = "cpu" if args.command in {"stats", "client"} else "cuda"
@@ -38,7 +39,9 @@ def main(command: str | None = None, arguments: list[str] | None = None) -> None
     import numpy as np
 
     ROOT = args.work_dir.expanduser().resolve()
-    DATASET = args.repo_id
+    DATASET = args.repo_id or (
+        "my-zzy/pressbutton_30hz_terminal_v2" if args.variant == "corrected" else "my-zzy/pressbutton_30hz"
+    )
     os.environ["HF_LEROBOT_HOME"] = str(ROOT / "datasets")
     os.environ["HF_HOME"] = str(ROOT / "cache/huggingface")
     os.environ["OPENPI_DATA_HOME"] = str(ROOT / "cache/openpi")
@@ -74,6 +77,7 @@ def main(command: str | None = None, arguments: list[str] | None = None) -> None
 
     cfg = make_config(
         work_dir=ROOT,
+        corrected=args.variant == "corrected",
         repo_id=DATASET,
         pretrained_checkpoint=args.pretrained_checkpoint,
         exp_name=args.exp_name,
@@ -81,6 +85,12 @@ def main(command: str | None = None, arguments: list[str] | None = None) -> None
         steps=2 if args.command == "smoke" else args.steps,
         resume=args.resume,
     )
+    if args.command == "stats" and args.variant == "corrected":
+        from ambench_learn.policies.pi.stable_stats import compute_stable_stats
+
+        report = compute_stable_stats(ROOT, DATASET, artifact_dir / "normalization_validation.json")
+        print(json.dumps(report, indent=2))
+        return
     if args.command == "stats":
         if (cfg.assets_dirs / DATASET / "norm_stats.json").exists():
             raise FileExistsError("Statistics already exist; use a new work directory for a new experiment")

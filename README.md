@@ -97,6 +97,11 @@ for the task, robot, controller, and policy guides, and
 configuration, formatting, building the docs, and simulator performance tuning.
 `AGENTS.md` and `CODING_STYLE.md` describe the repository conventions.
 
+This fork also includes [reconstructed PressButton experiment recipes](experiments/pressbutton/README.md)
+for scripted demos, the ACT baseline, OpenPI setup, and the original/corrected π₀
+pilots. Code and dependency manifests are tracked; datasets, checkpoints, and
+generated results remain ignored.
+
 ## Citation
 
 If you use AM-Bench in your research, please cite:

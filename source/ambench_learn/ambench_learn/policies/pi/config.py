@@ -22,11 +22,13 @@ def make_config(
     batch_size: int = 1,
     steps: int = 10_000,
     resume: bool = False,
-    repo_id: str = DATASET,
+    repo_id: str | None = None,
+    corrected: bool = False,
     pretrained_checkpoint: Path | None = None,
 ) -> config.TrainConfig:
     """Build the original wrist-only 30 Hz pilot, with explicit artifact locations."""
     root = work_dir.expanduser().resolve()
+    repo_id = repo_id or ("my-zzy/pressbutton_30hz_terminal_v2" if corrected else DATASET)
     checkpoint = pretrained_checkpoint or root / "pretrained/pi0_base"
     model = Pi0Config(
         paligemma_variant="gemma_2b_lora",
@@ -36,7 +38,7 @@ def make_config(
     base = config.get_config("pi0_am_bench_multitask_openpi_original_20hz_h50_ee_local_relative")
     return dataclasses.replace(
         base,
-        name=NAME,
+        name=NAME + ("_corrected" if corrected else ""),
         project_name="ambench_pi0_local",
         exp_name=exp_name,
         model=model,

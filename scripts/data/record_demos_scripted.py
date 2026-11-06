@@ -34,6 +34,8 @@ from isaaclab.app import AppLauncher
 
 # Add argparse arguments before extending them with AppLauncher options.
 parser = argparse.ArgumentParser(description="Record demonstrations for Isaac Lab environments.")
+parser.add_argument("--seed", type=int, default=None, help="Explicit collection seed.")
+parser.add_argument("--camera_fps", type=float, default=None, help="Camera/render rate; preserves control frequency.")
 parser.add_argument("--num_envs", type=int, default=None, help="Number of environments to simulate.")
 parser.add_argument("--task", type=str, required=True, help="Name of the task.")
 parser.add_argument(
@@ -409,6 +411,17 @@ def main() -> None:
         logger.error(f"Failed to parse environment configuration: {e}")
         raise SystemExit(1) from e
     env_cfg.episode_length_s = args_cli.env_length_s
+    if args_cli.seed is not None:
+        env_cfg.seed = args_cli.seed
+    if args_cli.camera_fps is not None:
+        if args_cli.camera_fps <= 0:
+            raise ValueError("camera_fps must be positive")
+        interval = 1.0 / (args_cli.camera_fps * env_cfg.sim.dt)
+        if abs(interval - round(interval)) > 1e-6 or interval < 1:
+            raise ValueError("Camera period must be an integer number of physics ticks")
+        env_cfg.sim.render_interval = round(interval)
+        if env_cfg.robot_profile.ee_camera is not None:
+            env_cfg.robot_profile.ee_camera.update_period = 1.0 / args_cli.camera_fps
 
     # Ensure rendering happens during internal resets to prevent stale observations.
     if hasattr(env_cfg, "num_rerenders_on_reset"):

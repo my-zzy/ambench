@@ -11,8 +11,6 @@ import argparse
 from pathlib import Path
 
 import lerobot.policies.act.processor_act as lerobot_act_processor
-from isaaclab.app import AppLauncher
-
 from ambench_learn.data.action_resampling import (
     compute_stride,
     interpolate_absolute_action_for_execution,
@@ -50,12 +48,15 @@ from ambench_learn.policies.act.se_relative_processor import (
 from ambench_learn.policies.act.se_relative_processor import (
     reconnect_se_relative_absolute_steps,
 )
+from isaaclab.app import AppLauncher
 
 # Argument parsing
 parser = argparse.ArgumentParser(
     description="Evaluate a LeRobot ACT checkpoint on Isaac Lab environments.",
 )
 add_common_eval_args(parser)
+parser.add_argument("--rollout-seed-base", type=int, default=None, help="Reset seed, separate from scene startup seed.")
+parser.add_argument("--scene-video-size", type=int, nargs=2, metavar=("WIDTH", "HEIGHT"), default=None)
 parser.add_argument(
     "--checkpoint",
     type=Path,
@@ -450,6 +451,8 @@ def main() -> None:
     if args_cli.save_video:
         camera_names.update(args_cli.video_camera_names)
     scene_camera_cfg = make_scene_camera_cfg() if "scene_camera" in camera_names else None
+    if scene_camera_cfg is not None and args_cli.scene_video_size is not None:
+        scene_camera_cfg.width, scene_camera_cfg.height = args_cli.scene_video_size
     env_cfg = configure_env_cfg(
         parse_env_cfg=parse_env_cfg,
         task=env_name,
@@ -514,6 +517,8 @@ def main() -> None:
         metadata={
             **build_common_eval_metadata(args_cli, output_dir=eval_save_dir),
             "Eval overrides": eval_overrides or None,
+            "Rollout seed base": args_cli.seed if args_cli.rollout_seed_base is None else args_cli.rollout_seed_base,
+            "Scene video resolution": args_cli.scene_video_size,
         },
     )
     eval_run.print_startup()
@@ -542,7 +547,7 @@ def main() -> None:
         requested_rollouts=args_cli.num_rollouts,
         num_envs=env.unwrapped.num_envs,
         run_batch=run_batch,
-        base_seed=args_cli.seed,
+        base_seed=args_cli.seed if args_cli.rollout_seed_base is None else args_cli.rollout_seed_base,
         video_folder=video_folder,
     )
 

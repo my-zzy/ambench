@@ -8,6 +8,7 @@ remain unchanged and ignored; they are provenance, never runtime imports.
 | `outputs/expert_demos/20261101_144142/run_task.py`, `run_suite.py` | `scripts/data/record_expert_episode.py`, `run_expert_suite.py` | Expert recordings |
 | ACT `record_training_demos.py` | Seed/camera-rate options in `scripts/data/record_demos_scripted.py` | ACT |
 | ACT `train_full.sh`, `eval_full.sh`, `evaluate_act_batch.py` | `experiments/pressbutton/act_*.sh` and `ambench_learn.policies.act.eval` | ACT |
+| ACT `python_deps/` distribution metadata | `experiments/pressbutton/requirements-act.txt`, `scripts/setup/install_act_runtime.sh`; recreate packages instead of tracking third-party installations | Portability verification |
 | ACT `evaluate_expert.py`, `eval_expert_full.sh` | `scripts/environments/evaluate_scripted.py` and documented paired seed schedule | ACT |
 | ACT `aggregate_results.py`, rollout table portions of report builders | `ambench_learn.eval.summarize` | ACT |
 | ACT and PI `validate_videos.py` | `ambench_learn.eval.validate_videos`, parameterized by policy and paths | ACT / PI |

@@ -33,12 +33,13 @@ CHECKPOINT = args.checkpoint.resolve()
 TRAIN_EPISODES = [0, 14, 28, 42, 56, 70, 84, 99]
 import numpy as np
 import pyarrow.parquet as pq
-from ambench_learn.policies.pi.config import make_config
 from openpi import transforms
 from openpi.policies import am_bench_policy as adapter
 from openpi.policies import policy_config
 from openpi.shared import normalize
 from PIL import Image
+
+from ambench_learn.policies.pi.config import make_config
 
 cfg = make_config(work_dir=OPENPI, repo_id=DATASET)
 keys = ["am_bench/ee_pos", "am_bench/ee_quat", "am_bench/gripper_width", "am_bench/ee_image", "prompt"]

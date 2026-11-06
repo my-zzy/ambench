@@ -3,6 +3,7 @@ set -euo pipefail
 # Run from the AM-Bench repository root after: conda activate ambench
 CHECKPOINT="${1:?Pass an ACT checkpoint directory}"
 RUN_DIR="${2:?Pass an output directory}"
+export PYTHONPATH="$PWD/outputs/act_runtime/python_deps:$PWD/source/ambench_learn:$PWD/source/ambench"
 export HF_HOME="$RUN_DIR/cache/huggingface"
 export HF_HUB_OFFLINE=1
 export TORCH_HOME="$RUN_DIR/cache/torch"

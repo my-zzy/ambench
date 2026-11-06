@@ -12,10 +12,11 @@ from pathlib import Path
 
 import numpy as np
 import pyarrow.parquet as pq
-from ambench_learn.policies.pi.config import make_config
 from openpi import transforms
 from openpi.policies import am_bench_policy as adapter
 from openpi.shared import normalize
+
+from ambench_learn.policies.pi.config import make_config
 
 
 def compute_stable_stats(work_dir: Path, repo_id: str, report_path: Path) -> dict:

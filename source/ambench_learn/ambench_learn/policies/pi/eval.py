@@ -15,6 +15,8 @@ import socket
 import time
 from urllib.parse import urlparse
 
+from isaaclab.app import AppLauncher
+
 from ambench_learn.eval.common import (
     EvalBatch,
     add_common_eval_args,
@@ -28,7 +30,6 @@ from ambench_learn.eval.common import (
     wrap_video,
 )
 from ambench_learn.eval.run import EvalRun
-from isaaclab.app import AppLauncher
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="Evaluate OpenPI policies zero-shot on Isaac Lab environments.")
@@ -104,6 +105,13 @@ import gymnasium as gym
 import isaaclab_tasks  # noqa: F401
 import numpy as np
 import torch
+from isaaclab.utils.seed import configure_seed
+from isaaclab_tasks.utils import parse_env_cfg
+from openpi_client import websocket_client_policy
+
+import ambench.tasks  # noqa: F401
+from ambench.evaluation import SuccessCriteriaTracker
+from ambench.recording import RecordVideo
 from ambench_learn.data.action_resampling import compute_stride
 from ambench_learn.data.action_semantics import (
     resolve_eval_action_semantics as _resolve_eval_action_semantics,
@@ -113,13 +121,6 @@ from ambench_learn.policies.pi.eval_utils import (
     default_action_for_env,
     expand_policy_actions,
 )
-from isaaclab.utils.seed import configure_seed
-from isaaclab_tasks.utils import parse_env_cfg
-from openpi_client import websocket_client_policy
-
-import ambench.tasks  # noqa: F401
-from ambench.evaluation import SuccessCriteriaTracker
-from ambench.recording import RecordVideo
 
 # set numpy print options
 np.set_printoptions(precision=4, suppress=True, floatmode="fixed")

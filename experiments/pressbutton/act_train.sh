@@ -3,6 +3,7 @@ set -euo pipefail
 # Run from the repository root after activating your Isaac Lab environment.
 DATASET_DIR="${1:?Pass a canonical LeRobot dataset directory}"
 RUN_DIR="${2:?Pass a new output directory}"
+export PYTHONPATH="$PWD/outputs/act_runtime/python_deps:$PWD/source/ambench_learn:$PWD/source/ambench"
 export HF_HOME="$RUN_DIR/cache/huggingface"
 export TORCH_HOME="$RUN_DIR/cache/torch"
 export CUDA_VISIBLE_DEVICES=0

@@ -16,7 +16,9 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--output-dir", type=Path, required=True)
 parser.add_argument("--reference-dir", type=Path, help="Directory containing heldout_export and converted records")
 parser.add_argument("--mode", choices=["collect", "replay"], required=True)
-parser.add_argument("--replay-variant", choices=["native_120hz", "raw_hold_30hz", "terminal_preserved_30hz"])
+parser.add_argument(
+    "--replay-variant", choices=["native_120hz", "raw_hold_30hz", "terminal_preserved_30hz", "corrected_30hz"]
+)
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
 ROOT = args.output_dir.resolve()
@@ -30,17 +32,17 @@ import gymnasium as gym
 import isaaclab_tasks  # noqa: F401
 import numpy as np
 import torch
-from ambench_learn.eval.common import configure_env_cfg, make_scene_camera_cfg
-from ambench_learn.policies.pi.eval_utils import (
-    default_action_for_env,
-    expand_policy_actions,
-)
 from isaaclab_tasks.utils import parse_env_cfg
 
 import ambench.tasks  # noqa: F401
 from ambench.recording.paths import write_env_cfg
 from ambench.utils.camera_utils import get_camera_rgb
 from ambench.utils.image_processing import prepare_rgb_image
+from ambench_learn.eval.common import configure_env_cfg, make_scene_camera_cfg
+from ambench_learn.policies.pi.eval_utils import (
+    default_action_for_env,
+    expand_policy_actions,
+)
 
 TASK = "PressButton-Am-FAHexa-Abs-PID-Direct-v0"
 SEEDS = [20000, 20004]

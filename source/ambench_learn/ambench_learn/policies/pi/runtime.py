@@ -45,8 +45,9 @@ def main(command: str | None = None, arguments: list[str] | None = None) -> None
     os.environ["HF_LEROBOT_HOME"] = str(ROOT / "datasets")
     os.environ["HF_HOME"] = str(ROOT / "cache/huggingface")
     os.environ["OPENPI_DATA_HOME"] = str(ROOT / "cache/openpi")
-    from ambench_learn.policies.pi.config import REPO, make_config
     from openpi.training import config as config_module
+
+    from ambench_learn.policies.pi.config import REPO, make_config
 
     artifact_dir = args.artifact_dir.resolve() if args.artifact_dir is not None else ROOT / "validation"
     artifact_dir.mkdir(parents=True, exist_ok=True)

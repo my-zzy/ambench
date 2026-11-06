@@ -30,10 +30,11 @@ CHECKPOINT = args.checkpoint.resolve()
 args.heldout = args.heldout_dir is not None
 import numpy as np
 import pyarrow.parquet as pq
-from ambench_learn.policies.pi.config import make_config
 from openpi import transforms
 from openpi.policies import am_bench_policy as adapter
 from openpi.shared import normalize
+
+from ambench_learn.policies.pi.config import make_config
 
 stats = normalize.load(CHECKPOINT / "assets" / DATASET)
 norm = transforms.Normalize(stats)

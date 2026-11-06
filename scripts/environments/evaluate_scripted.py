@@ -24,18 +24,18 @@ app = AppLauncher(args).app
 import gymnasium as gym
 import isaaclab_tasks  # noqa: F401
 import torch
-from ambench_learn.eval.common import (
-    configure_env_cfg,
-    make_scene_camera_cfg,
-    run_evaluation_batches,
-)
-from ambench_learn.eval.run import EvalRun
 from isaaclab.utils.seed import configure_seed
 from isaaclab_tasks.utils import parse_env_cfg
 
 import ambench.tasks  # noqa: F401
 from ambench.evaluation import SuccessCriteriaTracker
 from ambench.recording.paths import write_env_cfg
+from ambench_learn.eval.common import (
+    configure_env_cfg,
+    make_scene_camera_cfg,
+    run_evaluation_batches,
+)
+from ambench_learn.eval.run import EvalRun
 
 try:
     configure_seed(args.seed)

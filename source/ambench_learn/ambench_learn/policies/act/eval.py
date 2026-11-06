@@ -11,6 +11,8 @@ import argparse
 from pathlib import Path
 
 import lerobot.policies.act.processor_act as lerobot_act_processor
+from isaaclab.app import AppLauncher
+
 from ambench_learn.data.action_resampling import (
     compute_stride,
     interpolate_absolute_action_for_execution,
@@ -48,7 +50,6 @@ from ambench_learn.policies.act.se_relative_processor import (
 from ambench_learn.policies.act.se_relative_processor import (
     reconnect_se_relative_absolute_steps,
 )
-from isaaclab.app import AppLauncher
 
 # Argument parsing
 parser = argparse.ArgumentParser(

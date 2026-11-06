@@ -44,10 +44,15 @@ The historical environment used Python 3.11, Isaac Sim 5.1.0, Isaac Lab 0.54.4,
 PyTorch 2.7.0+cu128, torchvision 0.22.0+cu128, LeRobot 0.4.4, transformers 4.57.6,
 datasets 4.0.0, and PyAV 15.1.0. Use the standard installer and ACT dependencies
 in your isolated simulator environment; no `python_deps` folder from a run is
-required by these recipes. These versions describe the measured environment,
+required by these recipes. Recreate the historical extra packages with the
+tracked installer below; it places `diffusers==0.35.2` and `pyserial==3.5` under
+`outputs/act_runtime/python_deps` without changing the activated environment.
+The ACT launchers select that reproducible overlay. These versions describe the measured environment,
 not a request to replace an existing shared environment.
 
 ```bash
+bash scripts/setup/install_act_runtime.sh
+export PYTHONPATH="$PWD/outputs/act_runtime/python_deps:$PWD/source/ambench_learn:$PWD/source/ambench"
 python scripts/data/record_demos_scripted.py \
   --task PressButton-Am-FAHexa-Abs-PID-Direct-v0 --num_envs 4 \
   --num_demos 100 --seed 100 --camera_fps 30 --env_length_s 20 \
@@ -299,3 +304,21 @@ The original timestamped runs and presentation files remain in place. Their
 generated reports, videos, checkpoints, and datasets are not added to Git. No
 server installation, file transfer, training, or Git push is part of this history
 reconstruction.
+
+## Reconstruction portability checks — November 6, 2026
+
+The final portability commit recovers the ACT dependency overlay from its
+distribution metadata and applies the repository's import-order hooks. CLI
+checks passed for ACT train/eval, PI eval, seeded demo collection, and corrected
+replay, using the existing simulator environment plus the newly recreated overlay.
+Required recorder/replay arguments were supplied when checking `--help`; no
+Isaac application was launched. The corrected replay option is explicitly exposed
+by the parser. OpenPI training/inference/serving help also works without loading a
+model. The training supervisor's failed-child status and PID cleanup were checked.
+
+Validation is **CPU functional and CLI/import level**, plus all applicable
+pre-commit hooks on changed files. Python syntax, shell parsing, paired saved
+results, normalization equality, and terminal regression tests passed. No new
+GPU training, rendering, or simulator stepping was performed. These checks
+preserve the historical task-success claims rather than treating code migration
+as a fresh evaluation.

@@ -444,3 +444,37 @@ Detailed logs, package inventories, GPU samples, and JSON reports are on the
 server under `outputs/openpi/server_setup/`. All validation processes stopped.
 The artifact transfer and real fine-tuning remain pending; no long experiment
 will start automatically.
+
+## Local/server simulation comparison
+
+See [the isolated server simulator recipe](server_simulator.md) and
+[matching runtime additions](simulator-requirements.txt) for environment setup.
+
+`pi_benchmark.sh` records four fixed PressButton scenes with the same startup
+and reset seed (30000), 30 Hz actions, eight actions per prediction, and both
+camera views. Run it in an activated simulator environment on either host.
+The policy server uses its separate OpenPI environment and the same checkpoint
+for both hosts. Review the explicit GPU configuration in the recipe first.
+
+```bash
+# Simulator environment, repository root; policy server reachable on localhost.
+bash experiments/pressbutton/pi_benchmark.sh outputs/openpi/benchmark/warmup 8019
+bash experiments/pressbutton/pi_benchmark.sh outputs/openpi/benchmark/repeat_1 8019
+bash experiments/pressbutton/pi_benchmark.sh outputs/openpi/benchmark/repeat_2 8019
+```
+
+Each output directory must be new. A local simulator can reach a remote policy
+through an SSH tunnel; a server simulator uses localhost directly. The first
+run warms simulator caches and should be reported separately. Download completed
+server videos after timing, and report that download duration separately too.
+
+The evaluator's `--record-runtime-timing` option writes `runtime_timing.jsonl`,
+including reset time, rollout-loop time, vector-step count, accumulated
+`env.step` time, and inference roundtrip time. `env.step` includes controller
+work, physics, rendering, and the video wrapper. These are host wall timings,
+not isolated GPU kernel timings. `--record-inference-timing` additionally records
+per-request server inference time. Measure whole-process duration externally to
+include startup and shutdown. Compare time per vector step when rollout lengths
+differ. Repeated scenes measure performance; they are not additional independent
+generalization trials. Different hardware and stochastic policy sampling can
+also change trajectories and runtime.

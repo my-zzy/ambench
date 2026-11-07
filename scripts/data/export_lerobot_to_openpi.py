@@ -452,6 +452,11 @@ def parse_args() -> argparse.Namespace:
         help="Output dataset root. Defaults to $HF_LEROBOT_HOME/<repo_id>.",
     )
     parser.add_argument("--target_hz", type=int, default=20, help="Logical policy FPS for the OpenPI export.")
+    parser.add_argument(
+        "--preserve_terminal",
+        action="store_true",
+        help="Retain the final paired observation/action on the last policy grid point, including short episodes.",
+    )
     parser.add_argument("--ee_image_key", default=DEFAULT_EE_IMAGE_KEY, help="Canonical EE camera feature key.")
     parser.add_argument("--base_image_key", default=DEFAULT_BASE_IMAGE_KEY, help="Canonical base camera feature key.")
     parser.add_argument(
@@ -511,6 +516,15 @@ def main() -> None:
             )
         stride = compute_stride(int(raw_dataset.fps), args.target_hz)
         episodes = build_resampled_episodes(raw_dataset, stride)
+        episode_indices = []
+        for episode in episodes:
+            if args.preserve_terminal:
+                indices = list(range(episode.raw_from_index, episode.raw_to_index, stride))
+                if indices and indices[-1] != episode.raw_to_index - 1:
+                    indices.append(episode.raw_to_index - 1)
+            else:
+                indices = [episode.raw_from_index + step * stride for step in range(episode.logical_length)]
+            episode_indices.append(indices)
         reports.append({
             "dataset_root": str(dataset_root),
             "repo_id": repo_id,
@@ -519,13 +533,13 @@ def main() -> None:
             "target_hz": int(args.target_hz),
             "stride": stride,
             "raw_frames": int(raw_dataset.num_frames),
-            "logical_frames": sum(episode.logical_length for episode in episodes),
+            "logical_frames": sum(map(len, episode_indices)),
+            "episodes": [],
         })
 
-        for episode in episodes:
+        for episode, indices in zip(episodes, episode_indices, strict=True):
             frames: list[dict[str, Any]] = []
-            for logical_step in range(episode.logical_length):
-                raw_index = episode.raw_from_index + logical_step * stride
+            for raw_index in indices:
                 frame = openpi_frame(
                     raw_dataset[raw_index],
                     dataset=raw_dataset,
@@ -550,10 +564,25 @@ def main() -> None:
                             "schema": "openpi_am_bench",
                             "lerobot_version": OPENPI_LEROBOT_VERSION,
                             "include_base_image": not args.omit_base_image,
+                            "preserve_terminal": args.preserve_terminal,
+                            "terminal_handling": (
+                                "Retain stride samples and the paired final native observation/action;"
+                                " timestamp the endpoint on the next uniform policy grid point."
+                                if args.preserve_terminal
+                                else "Historical floor resampling"
+                            ),
                         },
                     )
                 frames.append(frame)
-            if output_dataset is not None:
+            if output_dataset is not None and frames:
+                reports[-1]["episodes"].append({
+                    "source_episode_index": episode.episode_index,
+                    "output_episode_index": output_dataset.episode_count,
+                    "source_frame_indices": [index - episode.raw_from_index for index in indices],
+                    "native_length": episode.raw_length,
+                    "exported_length": len(frames),
+                    "terminal_retained": indices[-1] == episode.raw_to_index - 1,
+                })
                 output_dataset.save_episode(frames)
 
     if output_dataset is None:
@@ -566,6 +595,7 @@ def main() -> None:
                 "repo_id": args.repo_id,
                 "target_hz": int(args.target_hz),
                 "include_base_image": not args.omit_base_image,
+                "preserve_terminal": args.preserve_terminal,
                 "sources": reports,
             },
             indent=2,

@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Reconstructed PressButton π₀ setup using the pinned OpenPI implementation."""
+"""PressButton and multi-task π₀ recipes using the pinned OpenPI implementation."""
 
 import dataclasses
 from pathlib import Path
@@ -13,6 +13,7 @@ from openpi.training import config, optimizer, weight_loaders
 REPO = Path(__file__).resolve().parents[5]
 NAME = "pi0_pressbutton_lora_30hz"
 DATASET = "my-zzy/pressbutton_30hz"
+MULTITASK_DATASET = "my-zzy/ambench_contact3_30hz_v1"
 
 
 def make_config(
@@ -28,6 +29,7 @@ def make_config(
     finetune_mode: str = "lora",
     fsdp_devices: int = 1,
     num_workers: int = 2,
+    multitask: bool = False,
 ) -> config.TrainConfig:
     """Build wrist-only LoRA or full tuning, preserving the original pilot defaults."""
     if finetune_mode not in {"lora", "full"}:
@@ -35,14 +37,16 @@ def make_config(
     if min(batch_size, steps, fsdp_devices) < 1 or num_workers < 0:
         raise ValueError("Batch size, steps, and FSDP devices must be positive; workers must be nonnegative")
     root = work_dir.expanduser().resolve()
-    repo_id = repo_id or ("my-zzy/pressbutton_30hz_terminal_v2" if corrected else DATASET)
+    repo_id = repo_id or (
+        MULTITASK_DATASET if multitask else "my-zzy/pressbutton_30hz_terminal_v2" if corrected else DATASET
+    )
     checkpoint = pretrained_checkpoint or root / "pretrained/pi0_base"
     model = Pi0Config(
         paligemma_variant="gemma_2b_lora" if finetune_mode == "lora" else "gemma_2b",
         action_expert_variant="gemma_300m_lora" if finetune_mode == "lora" else "gemma_300m",
         action_horizon=30,
     )
-    asset_name = NAME + ("_corrected" if corrected else "")
+    asset_name = "pi0_multitask_lora_30hz" if multitask else NAME + ("_corrected" if corrected else "")
     base = config.get_config("pi0_am_bench_multitask_openpi_original_20hz_h50_ee_local_relative")
     return dataclasses.replace(
         base,
@@ -87,6 +91,6 @@ def make_config(
             "action_representation": "ee_local_relative",
             "policy_target_hz": 30,
             "action_horizon": 30,
-            "task_prompt": "press the button",
+            **({"multitask": True, "requires_prompt": True} if multitask else {"task_prompt": "press the button"}),
         },
     )

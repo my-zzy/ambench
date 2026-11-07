@@ -1,0 +1,13 @@
+{
+  "robot_profile": "FAHexa-Abs-PID",
+  "state_keys": ["ee_pos", "ee_quat", "gripper_width"],
+  "policy_hz": 30,
+  "action_horizon": 30,
+  "n_action_steps": 8,
+  "episodes_per_task": 100,
+  "tasks": [
+    {"name": "PressButton", "prompt": "press the button", "episode_length_s": 20, "train_seed": 51000, "eval_seed": 61000, "paraphrase": "activate the button"},
+    {"name": "PushSlider", "prompt": "push the slider to the right", "episode_length_s": 26, "train_seed": 52000, "eval_seed": 62000, "paraphrase": "move the slider rightward"},
+    {"name": "PullLever", "prompt": "pull the lever upwards", "episode_length_s": 20, "train_seed": 53000, "eval_seed": 63000, "paraphrase": "raise the lever"}
+  ]
+}

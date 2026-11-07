@@ -13,6 +13,7 @@ import collections
 import json
 import socket
 import time
+import traceback
 from urllib.parse import urlparse
 
 from isaaclab.app import AppLauncher
@@ -37,6 +38,9 @@ add_common_eval_args(parser)
 parser.add_argument("--rollout-seed-base", type=int, default=None)
 parser.add_argument("--scene-video-size", type=int, nargs=2, metavar=("WIDTH", "HEIGHT"), default=None)
 parser.add_argument("--record-inference-timing", action="store_true")
+parser.add_argument(
+    "--record-runtime-timing", action="store_true", help="Record batch wall time and simulator step time."
+)
 parser.add_argument("--prompt", type=str, default=None, help="Language instruction prompt (required).")
 parser.add_argument("--host", type=str, default="localhost", help="Host running the remote OpenPI policy server.")
 parser.add_argument("--port", type=int, default=8000, help="Port used by the remote OpenPI policy server.")
@@ -138,10 +142,17 @@ def _run_rollout_batch(
     num_envs = env.unwrapped.num_envs
     env_indices = list(range(num_envs))
     tracked_env_indices = list(range(batch.size))
+    reset_start = time.perf_counter()
     if batch.seed is None:
         raw_obs, _ = env.reset()
     else:
         raw_obs, _ = env.reset(seed=batch.seed)
+    reset_seconds = time.perf_counter() - reset_start
+    loop_start = time.perf_counter()
+    simulator_seconds = 0.0
+    inference_seconds = 0.0
+    inference_calls = 0
+    vector_steps = 0
 
     action_plans: list[collections.deque[torch.Tensor]] = [collections.deque() for _ in env_indices]
     success = [False for _ in env_indices]
@@ -184,6 +195,9 @@ def _run_rollout_batch(
                     )
                     inference_start = time.perf_counter()
                     output = client.infer(example)
+                    roundtrip_seconds = time.perf_counter() - inference_start
+                    inference_seconds += roundtrip_seconds
+                    inference_calls += 1
                     if args.record_inference_timing:
                         with (eval_run.output_dir / "policy_inference.jsonl").open("a") as timing_file:
                             timing_file.write(
@@ -191,7 +205,7 @@ def _run_rollout_batch(
                                     "rollout_index": batch.start + env_index,
                                     "env_index": env_index,
                                     "step": step,
-                                    "roundtrip_ms": (time.perf_counter() - inference_start) * 1000,
+                                    "roundtrip_ms": roundtrip_seconds * 1000,
                                     "server_infer_ms": output.get("server_timing", {}).get("infer_ms"),
                                 })
                                 + "\n"
@@ -209,7 +223,10 @@ def _run_rollout_batch(
             action_rows.append(action_row.reshape(env.action_space.shape[-1]))
         actions_env = torch.stack(action_rows, dim=0).to(device=env.unwrapped.device, dtype=torch.float32)
 
+        simulator_start = time.perf_counter()
         raw_obs, reward, terminated, truncated, info = env.step(actions_env)
+        simulator_seconds += time.perf_counter() - simulator_start
+        vector_steps += 1
         actions_are_nan = torch.isnan(actions_env).flatten(start_dim=1).any(dim=1)
         stepped_env_indices = [env_index for env_index in tracked_env_indices if not done[env_index]]
 
@@ -262,6 +279,22 @@ def _run_rollout_batch(
             tracking_env_index=representative_env,
             progress_every=args.progress_every,
         )
+
+    if args.record_runtime_timing:
+        timing = {
+            "batch_start": batch.start,
+            "batch_size": batch.size,
+            "reset_seconds": reset_seconds,
+            "loop_seconds": time.perf_counter() - loop_start,
+            "simulator_step_seconds": simulator_seconds,
+            "inference_roundtrip_seconds": inference_seconds,
+            "inference_calls": inference_calls,
+            "vector_steps": vector_steps,
+            "simulated_seconds": vector_steps * float(env.unwrapped.dt),
+            "simulator_timing_scope": "env.step, including control, physics, rendering, and video recording",
+        }
+        with (eval_run.output_dir / "runtime_timing.jsonl").open("a") as timing_file:
+            timing_file.write(json.dumps(timing) + "\n")
 
     # Finalize every rollout represented by this vectorized batch.
     for env_index in tracked_env_indices:
@@ -366,5 +399,9 @@ def main() -> None:
 if __name__ == "__main__":
     try:
         main()
+    except Exception:
+        # Kit's fast shutdown can exit before Python prints the pending exception.
+        traceback.print_exc()
+        raise
     finally:
         simulation_app.close()

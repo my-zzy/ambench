@@ -17,6 +17,20 @@ from ambench_learn.policies.pi.runtime import main
 
 
 class ServerSetupTests(unittest.TestCase):
+    def test_multitask_separates_artifacts_and_requires_request_prompts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            single = make_config(work_dir=root, corrected=True)
+            multi = make_config(work_dir=root, multitask=True, finetune_mode="full")
+            multi_stats = make_config(work_dir=root, multitask=True)
+            self.assertNotEqual(multi.assets_dirs, single.assets_dirs)
+            self.assertNotEqual(multi.checkpoint_dir, single.checkpoint_dir)
+            self.assertEqual(Path(multi.data.assets.assets_dir), multi_stats.assets_dirs)
+            self.assertTrue(multi.data.base_config.prompt_from_task)
+            self.assertTrue(multi.policy_metadata["requires_prompt"])
+            self.assertNotIn("task_prompt", multi.policy_metadata)
+            self.assertEqual(single.policy_metadata["task_prompt"], "press the button")
+
     def test_full_tuning_reuses_statistics_and_separates_checkpoints(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

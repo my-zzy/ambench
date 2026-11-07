@@ -102,6 +102,10 @@ for scripted demos, the ACT baseline, OpenPI setup, and the original/corrected �
 pilots. Code and dependency manifests are tracked; datasets, checkpoints, and
 generated results remain ignored.
 
+The [three-task π₀ recipe](experiments/multitask/README.md) extends that workflow
+to PressButton, PushSlider, and PullLever with per-episode instructions and
+held-out per-task evaluation.
+
 ## Citation
 
 If you use AM-Bench in your research, please cite:

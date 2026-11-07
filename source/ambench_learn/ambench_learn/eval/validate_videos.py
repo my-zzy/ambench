@@ -34,6 +34,7 @@ for batch in range(5):
     batch_dir = root / "eval" / f"batch_{batch}"
     result = json.loads((batch_dir / "eval_summary.json").read_text())
     assert result["status"] == "completed" and len(result["rollouts"]) == 4
+    reset_seed = result["metadata"].get("Rollout seed base", result["metadata"].get("Seed"))
     for rollout in result["rollouts"]:
         env_index = rollout["batch_env_index"]
         trial = batch * 4 + rollout["rollout_idx"] + 1
@@ -43,7 +44,7 @@ for batch in range(5):
             primary_paths.add(path)
             paths[camera] = os.path.relpath(path, args.output_dir)
         markdown.append(
-            f"| {trial} | {10000 + 4 * batch} | {env_index} | {'Yes' if rollout['success'] else 'No'} |"
+            f"| {trial} | {reset_seed} | {env_index} | {'Yes' if rollout['success'] else 'No'} |"
             f" {rollout['executed_steps'] / 120:.2f} | [Video]({paths['scene_camera']}) |"
             f" [Video]({paths['ee_camera']}) |"
         )

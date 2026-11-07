@@ -30,7 +30,7 @@ def main(command: str | None = None, arguments: list[str] | None = None) -> None
     parser.add_argument("--artifact-dir", type=Path, help="Directory for inference/diagnostic outputs.")
     parser.add_argument("--work-dir", type=Path, default=Path("outputs/openpi"))
     parser.add_argument("--repo-id", default=None)
-    parser.add_argument("--variant", choices=["pilot", "corrected"], default="pilot")
+    parser.add_argument("--variant", choices=["pilot", "corrected", "multitask"], default="pilot")
     parser.add_argument("--pretrained-checkpoint", type=Path)
     parser.add_argument("--finetune-mode", choices=["lora", "full"], default="lora")
     parser.add_argument("--fsdp-devices", type=int, default=1)
@@ -46,7 +46,9 @@ def main(command: str | None = None, arguments: list[str] | None = None) -> None
 
     ROOT = args.work_dir.expanduser().resolve()
     DATASET = args.repo_id or (
-        "my-zzy/pressbutton_30hz_terminal_v2" if args.variant == "corrected" else "my-zzy/pressbutton_30hz"
+        "my-zzy/ambench_contact3_30hz_v1"
+        if args.variant == "multitask"
+        else "my-zzy/pressbutton_30hz_terminal_v2" if args.variant == "corrected" else "my-zzy/pressbutton_30hz"
     )
     os.environ["HF_LEROBOT_HOME"] = str(ROOT / "datasets")
     os.environ["HF_HOME"] = str(ROOT / "cache/huggingface")
@@ -99,6 +101,7 @@ def main(command: str | None = None, arguments: list[str] | None = None) -> None
         finetune_mode=args.finetune_mode,
         fsdp_devices=args.fsdp_devices,
         num_workers=args.num_workers,
+        multitask=args.variant == "multitask",
     )
     if args.synthetic_data:
         from openpi.training.weight_loaders import NoOpWeightLoader
@@ -112,10 +115,25 @@ def main(command: str | None = None, arguments: list[str] | None = None) -> None
             num_workers=0,
             policy_metadata={"synthetic_setup_check": True, "task_success_evaluated": False},
         )
-    if args.command == "stats" and args.variant == "corrected":
+    if args.variant == "multitask" and args.command in {"stats", "train", "smoke"} and not args.synthetic_data:
+        dataset_root = ROOT / "datasets" / DATASET
+        info = json.loads((dataset_root / "meta/info.json").read_text())
+        tasks = [json.loads(line) for line in (dataset_root / "meta/tasks.jsonl").read_text().splitlines()]
+        prompts = [task["task"].strip() for task in tasks]
+        if any(not prompt for prompt in prompts) or len(set(prompts)) < 2:
+            raise ValueError("Multi-task training requires at least two distinct nonempty task instructions")
+        if {task["task_index"] for task in tasks} != set(range(len(tasks))) or len(tasks) != info["total_tasks"]:
+            raise ValueError("Task metadata indices or task count are inconsistent")
+        if not info.get("ambench", {}).get("openpi_export", {}).get("preserve_terminal"):
+            raise ValueError("Multi-task data must be exported with --preserve_terminal")
+        if info["fps"] != 30:
+            raise ValueError("This multi-task recipe requires 30 Hz data")
+    if args.command == "stats" and args.variant in {"corrected", "multitask"}:
         from ambench_learn.policies.pi.stable_stats import compute_stable_stats
 
-        report = compute_stable_stats(ROOT, DATASET, artifact_dir / "normalization_validation.json")
+        report = compute_stable_stats(
+            ROOT, DATASET, artifact_dir / "normalization_validation.json", multitask=args.variant == "multitask"
+        )
         print(json.dumps(report, indent=2))
         return
     if args.command == "stats":
